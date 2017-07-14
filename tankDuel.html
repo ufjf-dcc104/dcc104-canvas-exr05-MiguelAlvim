@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Tank Duel</title>
+	<script src="sprite_box.js" charset="utf-8">	</script>
+	<script src="gridMap.js" charset="utf-8">	</script>
+	<script src="bar.js" charset="utf-8">	</script>
+	<script src="audioLoader.js" charset="utf-8">	</script>
+	<script>
+		function setCanvasSize(){
+			var h = window.innerHeight;
+			var w = window.innerWidth;
+			if(h<w){
+				w=h;
+			}else{
+				h=w
+			}
+			document.getElementsByTagName("Canvas")[0].width = w*0.9;
+			document.getElementsByTagName("Canvas")[0].height = h*0.9;
+		}
+	</script>
+  </head>
+  <body>
+	<canvas>
+		<script>
+			setCanvasSize(ctx);
+			//Control Vars
+			var eCanvas = document.getElementsByTagName("Canvas")[0];
+			var ctx = eCanvas.getContext("2d");			
+			var dateActual = new Date();
+			var dateBefore = new Date();
+			var fps = 60;
+			var deltaTime = 1/fps;
+			var objects = new Array();
+			var tanks = new Array();
+			var shells = new Array();
+			var oldCanvasW = eCanvas.width-1;
+			var oldCanvasH = eCanvas.height-1;
+			var keyMap = {};	
+			
+			//Sound Vars
+			var sounds = new AudioLoader(30);
+				sounds.load("bgmusic_ms","audio/Music/DST-TowerDefenseTheme.mp3");
+				sounds.load("shellFire_se","audio/SoundEffects/explosions/explodemini.wav");
+			var bg_musicTimer = 0;
+			var t1_soundTimer = 0;
+			var t2_soundTimer = 0;
+			
+			//Debug Vars
+			var pathX =-10000;
+			var pathY =-10000;
+			var pangle = 0;
+			
+	 		var Map = new GridMap();
+	     		Map.w = eCanvas.width-1;
+		    	Map.h = eCanvas.height-1;
+			
+			Map.setCellsValue([	
+
+				<!-- [1,1,1,1,1,1,1,1,1,1], -->
+				<!-- [1,0,0,0,0,0,0,0,0,1], -->
+				<!-- [1,0,0,1,0,0,0,0,0,1], -->
+				<!-- [1,0,0,0,1,0,0,0,0,1], -->
+				<!-- [1,0,0,0,0,0,0,1,0,1], -->
+				<!-- [1,0,0,0,0,0,0,0,0,1], -->
+				<!-- [1,0,0,1,0,0,0,0,0,1], -->
+				<!-- [1,0,0,0,0,0,0,0,0,1], -->
+				<!-- [1,0,0,0,0,0,0,0,0,1], -->
+				<!-- [1,1,1,1,1,1,1,1,1,1] -->
+				
+				[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+				[1,0,1,0,1,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0,0,1],
+				[1,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1],
+				[1,0,0,0,1,0,0,0,0,1,0,0,0,1,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,1,0,0,0,1],
+				[1,0,0,0,1,0,0,0,0,1,0,0,0,1,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,1,1,0,1,0,0,1,0,0,0,1],
+				[1,0,1,0,1,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,1,0,0,1,0,0,0,1],
+				[1,0,0,0,1,0,0,0,0,1,0,0,0,1,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,1],
+				[1,0,0,0,1,0,0,0,0,1,0,0,0,1,0,0,1,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,1,0,0,1,0,0,0,1],
+				[1,0,0,0,1,0,0,0,0,1,0,1,1,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1],
+				[1,1,0,0,1,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1],
+				[1,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,1,0,0,1,0,0,0,1],
+				[1,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1],
+				[1,0,0,1,1,0,0,0,0,1,1,1,1,1,1,0,1,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,1,1,1,0,1,1,1,1],
+				[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,1,1,1,0,0,1,0,0,0,0,0,0,1],
+				[1,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,1,0,0,1,0,0,0,1],
+				[1,0,1,1,1,1,1,0,1,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+				[1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1],
+				[1,0,0,1,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,1,0,0,0,0,0,0,1],
+				[1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,1],
+				[1,0,0,0,0,0,0,0,1,0,0,0,1,1,1,1,1,1,1,0,0,0,1,0,0,0,0,0,0,0,1,0,1,1,1,0,1,1,1,1],
+				[1,0,1,1,1,1,1,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,1,0,1,0,0,1,0,0,1,0,0,0,0,0,0,0,0,1],
+				[1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,1,0,1,0,0,1,0,0,1,0,0,0,0,0,0,0,0,1],
+				[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,1,0,0,1,0,0,1,0,1,1,1,1,1,1,1,1],
+				[1,1,1,1,1,1,0,1,1,1,1,1,0,0,0,0,0,0,1,0,0,0,1,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1],
+				[1,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,1],
+				[1,0,0,1,0,0,0,0,0,0,0,0,0,0,1,1,0,0,1,0,0,0,0,0,0,0,0,1,0,0,1,0,1,1,1,1,1,1,1,1],
+				[1,0,1,1,0,0,1,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,1],
+				[1,0,0,0,0,0,1,0,1,1,0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
+				[1,0,0,0,0,0,1,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,1,1,1,1,1,0,1,1,1,0,1,1,1,1,1,1,0,1],
+				[1,0,0,0,0,0,1,0,1,1,1,1,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,0,1],
+				[1,0,0,0,0,0,1,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+				[1,0,0,0,0,0,1,0,1,1,0,1,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+				[1,0,0,0,0,0,1,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+				[1,0,0,0,0,0,1,0,1,0,0,1,0,1,1,1,1,1,1,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+				[1,0,0,0,0,0,1,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+				[1,0,1,1,1,0,1,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,1],
+				[1,0,0,0,0,0,0,0,1,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,1],
+				[1,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+				[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+				[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]			
+			]);
+			Map.setColorCode(0,"White");
+			Map.setColorCode(1,"Black");
+			Map.setColorCode(2,"Yellow");
+			objects.push(Map);
+			var collisionCellCodes = new Array();	
+				collisionCellCodes.push(1);
+			
+			var tank0 = new Sprite();
+				var pos = Map.getXYByCell(1,1);
+				tank0.h = Map.getXSize()*0.5;
+				tank0.w = Map.getYSize(0)*0.5;
+				tank0.x = pos.mx+tank0.w;//Map.getXSize()+tank0.w;
+				tank0.y = pos.my+tank0.w;//Map.getYSize(0)+tank0.h;
+				tank0.color = "RED";
+				tank0.accNaturalLimit = 4.0;
+				tank0.printFowardDirection = true;
+				tank0.printCollisionPoints = true;
+				tank0.hasFrictionX = true;
+				tank0.hasFrictionY = true;
+				tank0.calculateCollisionPoints();
+				tank0.shootDelay = 0;
+				tank0.angle = 90;
+			objects.push(tank0);
+			tanks.push(tank0);
+			
+			var tank1 = new Sprite();
+				pos = Map.getXYByCell(38,38);
+				tank1.h = Map.getXSize()*0.5;
+				tank1.w = Map.getYSize(0)*0.5;
+				tank1.x = pos.mx+tank1.w;
+				tank1.y = pos.my+tank1.h;
+				tank1.color = "GREEN";
+				tank1.accNaturalLimit = 4.0;
+				tank1.printFowardDirection = true;
+				tank1.printCollisionPoints = true;
+				tank1.angle = 180;
+				tank1.calculateCollisionPoints();
+				tank1.shootDelay = 0;
+			objects.push(tank1);
+			tanks.push(tank1);
+			
+			var tank1Bar = new Bar();
+				tank1Bar.height =10;
+				tank1Bar.width =200;
+				tank1Bar.color ="green";
+				tank1Bar.x=eCanvas.width-200;
+				tank1Bar.y=eCanvas.height-10;
+				tank1Bar.maxValue=100;
+				tank1Bar.actualValue=100;
+				tank1.health = tank1Bar;
+			objects.push(tank1Bar);
+			var tank0Bar = new Bar();
+				tank0Bar.height =10;
+				tank0Bar.width =200;
+				tank0Bar.color ="red";
+				tank0Bar.x=0;
+				tank0Bar.y=0;
+				tank0Bar.maxValue=100;
+				tank0Bar.actualValue=100;
+				tank0.health = tank0Bar;
+			objects.push(tank0Bar);
+			
+			draw();
+			function draw(){
+				requestAnimationFrame(draw);
+				
+				//Indefinetly Plays the GB music
+				var now = new Date();
+				if(now.getTime() - bg_musicTimer > sounds.audios["bgmusic_ms"].duration*1000){
+					sounds.play("bgmusic_ms",0.5);
+					bg_musicTimer = new Date();
+				}
+				
+				
+				dateBefore = dateActual;
+				dateActual = new Date();
+				deltaTime = (dateActual - dateBefore)/1000;
+				
+				cleanCanvas();								
+				ctx.fillStyle = "BLACK";
+				
+				setCanvasSize(ctx);
+				Map.h = eCanvas.height;
+				Map.w = eCanvas.width;
+				//updateToScreenScale(objects);
+				
+				//DRAW & MOVE + COLLISION DETECTION CALLS
+				//COLLISION WITH MAP IS DONE WITH THE COLLISION POINTS: MORE PRECISE
+				//COLLISION WITH OTHER OBJECTS (OTHER TANKS and SHELLS) IS DONE WITH A RATIO: LESS PRECISE, FASTER
+				for(var i =0;i< objects.length;i++){
+					if(typeof objects[i].draw === "function"){
+						objects[i].draw(ctx);
+						}
+					if(typeof objects[i].move === "function"){
+						if(!collisionInFront(objects[i],Map,collisionCellCodes)){
+							objects[i].move(deltaTime);
+						}else{
+							if(objects[i].isShell){
+								objects.splice(objects.indexOf(objects[i]),1);
+								shells.splice(shells.indexOf(objects[i]),1);
+								break;
+							}else{
+								objects[i].x=objects[i].x-objects[i].velx;
+								objects[i].accangle=0;
+								objects[i].y=objects[i].y-objects[i].vely;
+								objects[i].velx=0;
+								objects[i].vely=0;
+							}
+						}
+						if(objects[i].isShell){
+							for(var j=0;j<tanks.length;j++){
+								if(tanks[j].circularColisionCheck(objects[i].x,objects[i].y)){
+									tanks[j].health.actualValue -= 25;
+									objects.splice(objects.indexOf(objects[i]),1);
+									if(tanks[j].health.actualValue<=0){
+										objects.splice(objects.indexOf(tanks[j]),1);
+									}
+									break;
+								}
+							}
+						}else if(tanks.indexOf(objects[i])!=-1){
+							for(var j=0;j<tanks.length;j++){
+								if(tanks[j].shootDelay>0)
+									tanks[j].shootDelay -= deltaTime;
+							
+								var dirVx = objects[i].x-tanks[j].x;
+								var dirVy = objects[i].y-tanks[j].y;
+								var norm = Math.sqrt(dirVx*dirVx + dirVy*dirVy);
+									dirVx = (dirVx/norm)*tanks[j].w/2;
+									dirVy = (dirVy/norm)*tanks[j].h/2;
+								<!-- console.log(dirVx + " " + dirVy); -->
+								if(tanks[j] != objects[i] && objects[i].circularColisionCheck(tanks[j].x+dirVx,tanks[j].y+dirVy)){
+									objects[i].x=objects[i].x-objects[i].velx;
+									objects[i].accangle=0;
+									objects[i].y=objects[i].y-objects[i].vely;
+									objects[i].velx=0;
+									objects[i].vely=0;
+								}
+							}
+						}
+					}
+				}
+				
+				drawBoundryBox();
+				executeKeyActions();
+				<!-- angleTowardsMovement(tank0); -->
+					//DEBUG STUFF
+					<!-- drawExpectedPath(); -->
+					<!-- var DEBUGx = 200; -->
+					<!-- var DEBUGy = 20; -->
+					<!-- ctx.font="20px Arial"; -->
+					<!-- ctx.fillStyle = "PURPLE"; -->
+					<!-- ctx.fillText("DT: "+deltaTime.toFixed(3)+" ms",DEBUGx,DEBUGy); -->
+					<!-- ctx.fillText("FPS: "+(1/deltaTime).toFixed(0),DEBUGx,20+DEBUGy); -->
+					<!-- ctx.fillText("ANGLE: "+(tank0.angle).toFixed(2),DEBUGx,40+DEBUGy) -->
+					<!-- ctx.fillText("ACC X/Y RATIO: "+(Math.abs((tank0.accx+0.00000001)/(tank0.accy+0.00000001))).toFixed(2),DEBUGx,60+DEBUGy); -->
+					<!-- ctx.fillText("VEL X/Y RATIO: "+(Math.abs((tank0.velx+0.00000001)/(tank0.vely+0.00000001))).toFixed(2),DEBUGx,80+DEBUGy); -->
+					<!-- ctx.fillText("ACC: "+((tank0.accangle)).toFixed(2),DEBUGx,100+DEBUGy); -->
+					<!-- ctx.fillText("VELX: "+((tank0.velx)).toFixed(2),DEBUGx,120+DEBUGy); -->
+					<!-- ctx.fillText("VELY: "+((tank0.vely)).toFixed(2),DEBUGx,140+DEBUGy); -->
+				
+			}
+			
+			function drawBoundryBox(){		
+				ctx.fillStyle = "black";
+				ctx.strokeStyle = "black";	
+				ctx.strokeRect(0,0,eCanvas.width-1,eCanvas.height-1);
+			}
+		
+			function cleanCanvas(){
+				ctx.clearRect(0,0,eCanvas.width,eCanvas.height)
+			}
+			
+			function expellFromCell(obj,mapp,cellCode){
+				//Checking center of object
+				var cell = mapp.getCellByXY(obj.x,obj.y);
+				var goodCells = [];
+				if(cell.mx>=0 && cell.my>=0 && cell.mx<mapp.map.length && cell.my<mapp.map[0].length){
+					if(!cellCode.includes(mapp.map[cell.my][cell.mx]) && !goodCells.includes(cell)){
+						goodCells.push(cell);
+					}
+				}
+				if(typeof obj.collisionPoints === "object"){
+					for(var i =0;i<obj.collisionPoints.length;i++){
+						cell = mapp.getCellByXY(obj.x+obj.collisionPoints,obj.y);
+						if(cell.mx>=0 && cell.my>=0 && cell.mx<mapp.map.length && cell.my<mapp.map[0].length){
+							if(!cellCode.includes(mapp.map[cell.my][cell.mx]) && !goodCells.includes(cell)){
+								goodCells.push(cell);
+							}
+						}
+					}
+				}
+			}
+			
+			function shootShell(obj){
+				var dirVx = obj.x-obj.w;
+				var dirVy = obj.y;
+				var cos = Math.cos(obj.angle*Math.PI/180);
+				var sine = Math.sin(obj.angle*Math.PI/180);
+				var shell = new Sprite();	
+					shell.w = 4;
+					shell.h = 2;
+					shell.hasFrictionX = true;
+					shell.hasFrictionY = true;
+					shell.hasFrictionAngle = false;
+					shell.x = obj.x + obj.w*cos;
+					shell.y = obj.y + obj.h*sine;
+					shell.angle = obj.angle;
+					shell.accangle = 300;
+					shell.accNaturalLimit = 100;
+					shell.color = "BLACK";
+					shell.isShell = true;
+					objects.push(shell);
+					shells.push(shell);
+					sounds.play("shellFire_se",0.5);
+			}
+			
+			/*
+				obj = object to be tested; NEED TO HAVE x,y,w,h,velx,vely
+				mapp= map to be tested;
+				cellCode: Array with all the cell values that NEED TO TRIGGER A COLLISION
+			*/
+			function collisionInFront(obj,mapp,cellCode){
+				var currentCell = mapp.getCellByXY(obj.x,obj.y);
+				if(currentCell.mx<0 || currentCell.my<0)
+					return false;
+				var cellCmod = 0;
+				if(obj.velx>0){
+					cellCmod = 1;
+				}else if(obj.velx<0){
+					cellCmod = -1;
+				}
+				var cellRmod = 0;
+				if(obj.vely>0){
+					cellRmod = 1;
+				}else if(obj.vely<0){
+					cellRmod = -1;
+				}
+				if(cellCmod !=0 || cellRmod !=0){
+					//Checking in each extreme collision points		
+					if(typeof obj.collisionPoints === "object"){
+						for(var i =0;i<obj.collisionPoints.length;i++){
+							currentCell = mapp.getCellByXY(obj.x+obj.collisionPoints[i].x,obj.y+obj.collisionPoints[i].y);
+							ahead = mapp.getCellByXY((obj.x+obj.collisionPoints[i].x+obj.velx),(obj.y+obj.collisionPoints[i].y+obj.vely));	
+							if(ahead.mx>=0 && ahead.my>=0){
+								if(cellCode.includes(mapp.map[ahead.my][ahead.mx])){
+									return true;
+								}
+							}
+						}
+					}
+					//Checking fron to center to the edge
+					var ahead = mapp.getCellByXY(((obj.x+(obj.w*cellCmod/2))+obj.velx),(obj.y+(obj.h*cellRmod/2)+obj.vely));
+					if(ahead.mx>=0 && ahead.my>=0 && ahead.mx<mapp.map.length && ahead.my<mapp.map[0].length){
+						if(cellCode.includes(mapp.map[ahead.my][ahead.mx])){
+							return true;
+						}else{
+							var current = mapp.getCellByXY((obj.x),(obj.y));
+							var aheadX = {mx:ahead.mx,my:current.my};
+							var aheadY = {mx:current.mx,my:ahead.my};
+							return ((cellCode.includes(mapp.map[aheadX.my][aheadX.mx])) && (cellCode.includes(mapp.map[aheadY.my][aheadY.mx])));
+						}
+					}
+				}
+				return false;
+			}
+			
+			function updateToScreenScale(objs){
+				for(var i =0;i < objs.length;i++){
+					if(typeof objs[i].h !== "undefined"){
+						objs[i].h = objs[i].h*(oldCanvasH/eCanvas.height)
+					}
+					if(typeof objs[i].w !== "undefined"){
+						objs[i].w = objs[i].w*(oldCanvasW/eCanvas.width)
+					}
+				}
+				oldCanvasH = eCanvas.height;
+				oldCanvasW = eCanvas.width;
+			}
+			
+			function drawExpectedPath(){
+				ctx.strokeStyle ="PURPLE";
+				ctx.beginPath();
+					ctx.moveTo(pathX,pathY);
+					ctx.lineTo(pathX + 1000*Math.cos((pangle)*Math.PI/180),pathY + 1000*Math.sin((pangle)*Math.PI/180));	
+				ctx.stroke();
+			}
+			
+			onkeydown = onkeyup = function(e){
+				keyMap[e.keyCode] = e.type == 'keydown';
+				<!-- console.log(e.keyCode);	 -->
+			}
+			function executeKeyActions(){
+				var acc = 0.5;
+				var vel = 2;				
+				var angSpeed = 60;
+				//Player 1 
+				if("32" in keyMap && keyMap[32]){//Space
+					//DRAW EXPECTED PATH: DEBUGG
+					<!-- pathX = tank0.x; -->
+					<!-- pathY = tank0.y; -->
+					<!-- pangle = tank0.angle; -->
+					//SHOOT WEAPON
+					if(tank0.shootDelay<=0){
+						shootShell(tank0);
+						tank0.shootDelay = 3;
+					}
+				}	
+				if("65" in keyMap && keyMap[65]){//Left
+						<!-- tank0.addACCX(-acc); -->
+						tank0.angle = tank0.angle%360 - angSpeed*deltaTime;
+						tank0.calculateCollisionPoints();
+				}
+				if("87" in keyMap && keyMap[87]){//Up
+						<!-- tank0.addACCY(-acc); -->
+						var now = new Date();
+						tank0.accangle += acc;
+						if(now.getTime() - t1_soundTimer > sounds.audios["tankMove_se"].duration*1000){
+							<!-- sounds.play("tankMove_se",0.5); -->
+							t1_soundTimer = new Date();
+						}
+				}
+				if("68" in keyMap && keyMap[68]){//Right
+						<!-- tank0.addACCX(acc);		 -->
+						tank0.angle = tank0.angle%360 + angSpeed*deltaTime;
+						tank0.calculateCollisionPoints();
+				}	
+				if("83" in keyMap && keyMap[83]){//Down
+						<!-- tank0.addACCY(acc); -->
+						tank0.accangle -= acc;
+				}				
+				//Player 2
+				//103 = numpad 7 
+				//105 = numpad 9 
+				//97  = numpad 1 
+				//99  = numpad 3 
+				//101 = numpad 5	
+				if("103" in keyMap && keyMap[103]){//Numpad 7
+					//SHOOT WEAPON
+					if(tank1.shootDelay<=0){
+						shootShell(tank1);
+						tank1.shootDelay = 3;
+					}
+				}	
+				if("100" in keyMap && keyMap[100]){//Left
+						<!-- tank1.addACCX(-acc); -->
+						tank1.angle = tank1.angle%360 - angSpeed*deltaTime;
+						tank1.calculateCollisionPoints();
+				}
+				if("104" in keyMap && keyMap[104]){//Up
+						<!-- tank1.addACCY(-acc); -->
+						var now = new Date();
+						tank1.accangle += acc;
+						if(now.getTime() - t2_soundTimer > sounds.audios["tankMove_se"].duration*1000){
+							<!-- sounds.playPart("tankMove_se",0.5,0.5); -->
+							t2_soundTimer = new Date();
+						}
+				}
+				if("102" in keyMap && keyMap[102]){//Right
+						<!-- tank1.addACCX(acc);		 -->
+						tank1.angle = tank1.angle%360 + angSpeed*deltaTime;
+						tank1.calculateCollisionPoints();
+				}	
+				if("98" in keyMap && keyMap[98]){//Down
+						<!-- tank1.addACCY(acc); -->
+						tank1.accangle -= acc;
+				}
+				
+			}
+			
+			function angleTowardsMovement(obj){
+				var velVector = {};	
+				if(obj.velx !=0 || obj.vely !=0){
+					var norm	  = Math.sqrt(obj.velx*obj.velx+obj.vely*obj.vely);
+					velVector = {x:(obj.velx/norm),y:(obj.vely/norm)};
+					<!-- console.log(velVector); -->
+				}else{
+					velVector = {x:0,y:0};
+					<!-- console.log(velVector); -->
+				}
+			}
+		</script>
+	</canvas>
+  </body>
+<html>		
